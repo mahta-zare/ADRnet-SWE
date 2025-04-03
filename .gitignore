@@ -1,0 +1,10 @@
+# Ignore all .pth and .txt files
+*.pth
+*.txt
+
+# Ignore directories
+og_data/
+plots/og_plots/
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
