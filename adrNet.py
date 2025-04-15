@@ -352,7 +352,7 @@ class resnet(nn.Module):
                         
                         dz = (k1 + 2*k2 + 2*k3 + k4)/6
 
-                    z  = z + z_adv + self.h*dz    
+                    z  = z_adv + self.h*dz    
 
             elif self.order == "DRA":
                 for i in range(self.nlayers):
@@ -389,10 +389,9 @@ class resnet(nn.Module):
                         
                         dz = (k1 + 2*k2 + 2*k3 + k4)/6
 
-                    z = z + z_adv + self.h*dz    
-                    z_adv = self.Adv[i](z,t/2)
-                    z = z + z_adv
-
+                    z = z_adv + self.h*dz    
+                    z = self.Adv[i](z,t/2)
+                    
 
             elif self.order == "DRA":
 
@@ -405,7 +404,7 @@ class resnet(nn.Module):
                         z_adv = self.Adv[i](z,t)
 
                         dz = self.DR[i](z_adv)
-                        z = z + z_adv + 0.5*self.h*dz
+                        z = z_adv + 0.5*self.h*dz
 
 
                     elif self.integrator == "RK4":
@@ -428,7 +427,7 @@ class resnet(nn.Module):
                         
                         dz = (k1 + 2*k2 + 2*k3 + k4)/6
 
-                        z = z + z_adv + 0.5*self.h*dz
+                        z = z_adv + 0.5*self.h*dz
 
             
         x = F.conv2d(z, self.Close) #self.Close(z)
