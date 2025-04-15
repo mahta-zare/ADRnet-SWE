@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import torch_dct as dct
 from torch.autograd import grad
+from omegaconf import DictConfig
 
 def plotGrid(X, Y, col='b'):
     n, k = X.shape
@@ -307,12 +308,13 @@ class diffusion_reaction_net(nn.Module):
         return x
 
 class resnet(nn.Module):
-    def __init__(self, cfg, in_c, hid_c, out_c, nlayers=16, imsz=[256, 256]):
+    def __init__(self, cfg: DictConfig, in_c, hid_c, out_c, nlayers=16, imsz=[256, 256]):
         super(resnet, self).__init__()
         
-        self.order = cfg["order"]
-        self.integrator = cfg["integrator"]
-        self.os = cfg["os"]
+        self.cfg = cfg
+        self.order = cfg.model.order
+        self.integrator = cfg.model.integrator
+        self.os = cfg.model.os
 
         self.nlayers = nlayers
         self.Open = CLP(in_c, hid_c, imsz)
