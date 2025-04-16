@@ -31,8 +31,7 @@ def solvePoisson(f, kappa, h=0):
 
     # 2D DCT of f (Right hand side)
     fhat = dct.dct_2d(f)
-    #MWY, MWX  = torch.meshgrid(mwx,mwy)
-    MWX, MWY  = torch.meshgrid(mwy,mwx)
+    MWX, MWY  = torch.meshgrid(mwy,mwx,indexing="ij")
     MXY = MWX+MWY
     MXY = MXY.unsqueeze(0).unsqueeze(0)
     MXY = MXY*kappa.reshape(1,-1,1,1)
@@ -58,7 +57,7 @@ class mass_preserving_advection(nn.Module):
         
         device = input_image.device
         meshSize = (input_image.shape[2],input_image.shape[3])
-        y, x = torch.meshgrid(torch.arange(meshSize[0]), torch.arange(meshSize[1]))
+        y, x = torch.meshgrid(torch.arange(meshSize[0]), torch.arange(meshSize[1]),indexing="ij")
         x = x.to(device)
         y = y.to(device)
     
@@ -245,7 +244,7 @@ class color_preserving_advection(nn.Module):
         shape = (T.shape[2],T.shape[3])
         device = T.device
         grid_h, grid_w = shape[0], shape[1]
-        y, x = torch.meshgrid(torch.linspace(-1, 1, grid_h), torch.linspace(-1, 1, grid_w))
+        y, x = torch.meshgrid(torch.linspace(-1, 1, grid_h), torch.linspace(-1, 1, grid_w),indexing="ij")
         self.grid = torch.stack((x, y), dim=-1).unsqueeze(0).unsqueeze(0).to(device)
 
         UV = torch.stack((U, V), dim=-1)

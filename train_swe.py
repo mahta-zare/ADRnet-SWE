@@ -40,14 +40,18 @@ def main(cfg: DictConfig):
 
     #########################
 
-    # with open("/home/ndj376/ADRnet/AdvectionNet/PDEBench_SWE_ADRNet_Pred50/config/configs.yaml", "r") as file:
-    #     cfg = yaml.safe_load(file)
-    # f = open("test.txt", "w")
-    # f.write("test test test \n")
-    # f.close()
-    # device = torch.device("cuda:1" if torch.cuda.is_available() else "cpu")
-    device = "cpu"
+    # Determine the device
+    if cfg.compute.accelerator == "gpu" and torch.cuda.is_available():
+        device = torch.device(f"cuda:{cfg.compute.cuda_visible_devices}")
+    else:
+        device = torch.device("cpu")
     print('Device: ',device)
+    
+
+    # device = torch.device("cuda:cfg.compute.cuda_visible_devices" if torch.cuda.is_available() and cfg.compute.accelerator=="gpu" else "cpu")
+    plots_dir = os.path.join(cfg.output_dir, "plots")
+    os.makedirs(plots_dir, exist_ok=True)
+
 
 
     batch_size = 64
@@ -74,11 +78,12 @@ def main(cfg: DictConfig):
 
     print('Number of model parameters = %3d'%(count_parameters(model)))
 
-    lr = 1e-4
+    lr = cfg.trainer.learning_rate
     optim = Adam(model.parameters(), lr)
-    epochs = 20
+    epochs = cfg.trainer.num_epochs
 
-    f = open(cfg.output_dir + "detail.txt", "w")
+    f = open(os.path.join(cfg.output_dir, "training_loss.txt"), "w")
+    
     f.write("Training: \n")
     f.write('Number of model parameters = '+str(count_parameters(model))+'\n')
 
@@ -101,14 +106,14 @@ def main(cfg: DictConfig):
             xx, yy, tt = xx.to(device), yy.to(device), tt.to(device)
             xx = F.interpolate(xx, size=[SZ,SZ])
             yy = F.interpolate(yy, size=[SZ,SZ])
-            xx = xx-1.0
-            yy = yy-1.0
+            xx = xx - 1.0
+            yy = yy - 1.0
 
             qq = model(xx, tt)
             ycomp = qq #torch.relu(qq + xx[:,-1:,:,:])
             
-            loss = F.mse_loss(ycomp, yy)/F.mse_loss(yy*0, yy)     # misfit
-            #breakpoint()
+            loss = F.mse_loss(ycomp, yy)/F.mse_loss(yy*0, yy)
+    
             loss.backward()
             optim.step()
             #scheduler.step()
@@ -121,10 +126,9 @@ def main(cfg: DictConfig):
             nRMSE = (nMSE.item())**0.5
 
             # tqdm_epoch.set_description('epochs = %3d.%3d   Loss(nMSE after translation) =  %3.2e  Training Avg nRMSE = %3.2e Best Epoch = %3d  Best Validation nRMSE = %3.2e'%(k,j,loss,current_loss,best_epoch, best_loss))
-
         
 
-            f.write("Loss: "+str(nRMSE)+" s\n")
+            f.write(str(nRMSE)+"\n")
             temp_loss+=nRMSE
             ct = ct + 1
 
@@ -163,16 +167,18 @@ def main(cfg: DictConfig):
 
         if best_loss > (temp_loss1/ct):    # at least loss actually misfit for test dataset
             best_loss = (temp_loss1/ct)
-            torch.save(model, cfg.output_dir + "model-full.pth")
+            torch.save(model, os.path.join(cfg.output_dir, "model-best.pth"))
+            # torch.save(model, cfg.output_dir + "model-full.pth")
             best_epoch = k
 
-        torch.save(model, cfg.output_dir + "model-full-last.pth")
+        torch.save(model, os.path.join(cfg.output_dir, "model-last.pth"))
         print(
                     f"Epoch {k:4d} | "
                     f"Train Avg nRMSE: {current_loss:.6f} | "
                     f"Val Loss: {temp_loss1/ct:.6f} | "
                     # f"LR: {current_lr:.2e} | "
-                    f"Elapsed time: {elapsed_time:.4f}s"
+                    f"Elapsed time: {elapsed_time:.4f}s",
+                    flush=True,
                 )
 
         
@@ -183,7 +189,7 @@ def main(cfg: DictConfig):
         plt.ylabel('loss (misfit)')
         plt.yscale("log")
         plt.title("Loss curve")
-        plt.savefig(cfg.output_dir + "Training_loss.png")
+        plt.savefig(os.path.join(plots_dir, "Training_loss.png"))
         plt.figure().clear()
         plt.close()
         plt.cla()
@@ -277,7 +283,8 @@ def main(cfg: DictConfig):
             axs[1, 2].set_title('Last Frame Error')
             axs[1, 2].axis("off")
             plt.colorbar(c6,ax = axs[1, 2])  # colorbar and position
-            plt.savefig(cfg.output_dir + "SingleShotComparison"+str(ct)+".png")
+            plt.savefig(os.path.join(plots_dir, "SingleShotComparison"+str(ct)+".png"))
+            
 
     # These are not the stadard calculations
     PMSE = MSE/ct
@@ -302,7 +309,8 @@ def main(cfg: DictConfig):
     plt.ylabel('loss (misfit)')
     plt.yscale("log")
     plt.title("Testing loss curve")
-    plt.savefig(cfg.output_dir + "Direct_Testing_loss.png")
+    # plt.savefig(cfg.output_dir + "Direct_Testing_loss.png")
+    plt.savefig(os.path.join(plots_dir, "Direct_Testing_loss.png"))
 
     print('Done Direct Testing')
 

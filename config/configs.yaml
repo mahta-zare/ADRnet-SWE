@@ -5,8 +5,13 @@ model:
 
 
 trainer:
-  num_epochs: 200            # Number of epochs to train the model
-  learining_rate: 1e-4      # Initial learning rate
+  num_epochs: 5            # Number of epochs to train the model
+  learning_rate: 1e-4      # Initial learning rate
+
+compute:
+  cuda_visible_devices: "1"          # Which GPU to use. Can be "0", "1", or "0,1"
+  accelerator: "gpu"            # Accelerator type (e.g., "gpu", "cpu")
+  num_devices: 1            # Number of devices to use for training
   
 output_dir: /home/ndj376/ADRnet/AdvectionNet/PDEBench_SWE_ADRNet_Pred50/test_results
 

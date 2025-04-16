@@ -1,25 +1,30 @@
 #!/bin/bash
-OS="strang"
+OS="lie"
 ORDER="ADR"
 INTEGRATOR="FE"
 
 
-output_dir="/home/ndj376/ADRnet/AdvectionNet/PDEBench_SWE_ADRNet_Pred50/test_results/"
-mkdir -p $output_dir
-output_file=${OS}_${ORDER}_${INTEGRATOR}
+OUTPUT_DIR="/home/ndj376/ADRnet/AdvectionNet/PDEBench_SWE_ADRNet_Pred50/test_results"
 
 
-echo $output_file 
+
+TEST_TYPE="${OS}_${ORDER}_${INTEGRATOR}"
+timestamp=$(date +"%Y%m%d_%H%M%S")
+FINAL_OUTPUT_DIR="${OUTPUT_DIR}/${TEST_TYPE}_${timestamp}"
+mkdir -p $FINAL_OUTPUT_DIR
+
+echo "Output directory: $FINAL_OUTPUT_DIR"
+
 echo "
-OperatorSplitting= $OS
+OperatorSplitting=$OS
 Order=$ORDER
 Integrator=$INTEGRATOR
-"
+" > "$FINAL_OUTPUT_DIR/log.txt"
+
 
 python train_swe.py \
     model.os=$OS \
     model.order=$ORDER \
     model.integrator=$INTEGRATOR \
-    hydra.run.dir=${output_dir} \
-    hydra.output_subdir=null \
-    > ${output_dir}/${output_file}.txt
+    output_dir=$FINAL_OUTPUT_DIR \
+    >> $FINAL_OUTPUT_DIR/log.txt
