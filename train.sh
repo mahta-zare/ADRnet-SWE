@@ -2,8 +2,8 @@
 OS="lie"
 ORDER="ADR"
 INTEGRATOR="FE"
-
-
+EPOCHS=2
+CUDA="0"
 OUTPUT_DIR="/home/ndj376/ADRnet/AdvectionNet/PDEBench_SWE_ADRNet_Pred50/test_results"
 
 
@@ -19,7 +19,8 @@ echo "
 OperatorSplitting=$OS
 Order=$ORDER
 Integrator=$INTEGRATOR
-" > "$FINAL_OUTPUT_DIR/log.txt"
+EPOCHS=$EPOCHS
+" > $FINAL_OUTPUT_DIR/log.txt
 
 
 python train_swe.py \
@@ -27,4 +28,6 @@ python train_swe.py \
     model.order=$ORDER \
     model.integrator=$INTEGRATOR \
     output_dir=$FINAL_OUTPUT_DIR \
+    compute.cuda_visible_devices=$CUDA \
+    trainer.num_epochs=$EPOCHS \
     >> $FINAL_OUTPUT_DIR/log.txt

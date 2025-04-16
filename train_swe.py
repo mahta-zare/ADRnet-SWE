@@ -33,7 +33,6 @@ from sweDataLoader import *
 
 
 @hydra.main(config_path="config", config_name="configs", version_base=None)
-# print(OmegaConf.to_yaml(cfg))
 def main(cfg: DictConfig):
     def count_parameters(model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -48,7 +47,6 @@ def main(cfg: DictConfig):
     print('Device: ',device)
     
 
-    # device = torch.device("cuda:cfg.compute.cuda_visible_devices" if torch.cuda.is_available() and cfg.compute.accelerator=="gpu" else "cpu")
     plots_dir = os.path.join(cfg.output_dir, "plots")
     os.makedirs(plots_dir, exist_ok=True)
 
@@ -99,7 +97,7 @@ def main(cfg: DictConfig):
     for k in tqdm_epoch:
         start_epoch = time.time()
         temp_loss = 0
-        ct = 0
+        counter = 0
         for j,data in enumerate(train_loader):  # test fitting to a few samples on test_loader, trainloader always produce random generated set.
             optim.zero_grad()    
             xx, yy, tt = data
@@ -116,7 +114,6 @@ def main(cfg: DictConfig):
     
             loss.backward()
             optim.step()
-            #scheduler.step()
 
             xx = xx + 1
             yy = yy + 1
@@ -127,18 +124,17 @@ def main(cfg: DictConfig):
 
             # tqdm_epoch.set_description('epochs = %3d.%3d   Loss(nMSE after translation) =  %3.2e  Training Avg nRMSE = %3.2e Best Epoch = %3d  Best Validation nRMSE = %3.2e'%(k,j,loss,current_loss,best_epoch, best_loss))
         
-
             f.write(str(nRMSE)+"\n")
             temp_loss+=nRMSE
-            ct = ct + 1
+            counter = counter + 1
 
 
-        loss_history.append(temp_loss/ct)
-        current_loss = temp_loss/ct
+        loss_history.append(temp_loss/counter)
+        current_loss = temp_loss/counter
 
-        # test dataset for validation  # because testing misfit seemed higher than training misfit
+        # validation 
         temp_loss1 = 0
-        ct = 0 
+        counter = 0 
         for j,data in enumerate(test_loader):
             if j>1:
                 break
@@ -146,8 +142,9 @@ def main(cfg: DictConfig):
             xx, yy, tt = xx.to(device), yy.to(device), tt.to(device)
             xx = F.interpolate(xx, size=[SZ,SZ])
             yy = F.interpolate(yy, size=[SZ,SZ])
-            xx = xx-1.0
-            yy = yy-1.0
+            xx = xx - 1.0
+            yy = yy - 1.0
+
             with torch.no_grad():
                 qq = model(xx, tt)
 
@@ -155,18 +152,18 @@ def main(cfg: DictConfig):
             ycomp = ycomp + 1
             xx = xx + 1
             yy = yy + 1
-            loss1 = F.mse_loss(ycomp, yy)/F.mse_loss(yy*0, yy)     # misfit or nMSE
+            loss1 = F.mse_loss(ycomp, yy)/F.mse_loss(yy*0, yy)     # nMSE as loss
             
             temp_loss1+=((loss1.item())**0.5)     # add nRMSE
-            ct = ct + 1
+            counter = counter + 1
 
-        loss_test.append(temp_loss1/ct)
+        loss_test.append(temp_loss1/counter)
 
         end_epoch = time.time()
         elapsed_time = end_epoch - start_epoch
 
-        if best_loss > (temp_loss1/ct):    # at least loss actually misfit for test dataset
-            best_loss = (temp_loss1/ct)
+        if best_loss > (temp_loss1/counter):    # at least loss actually misfit for test dataset
+            best_loss = (temp_loss1/counter)
             torch.save(model, os.path.join(cfg.output_dir, "model-best.pth"))
             # torch.save(model, cfg.output_dir + "model-full.pth")
             best_epoch = k
@@ -174,8 +171,8 @@ def main(cfg: DictConfig):
         torch.save(model, os.path.join(cfg.output_dir, "model-last.pth"))
         print(
                     f"Epoch {k:4d} | "
-                    f"Train Avg nRMSE: {current_loss:.6f} | "
-                    f"Val Loss: {temp_loss1/ct:.6f} | "
+                    f"Train Loss: {current_loss:.6f} | "
+                    f"Val Loss: {temp_loss1/counter:.6f} | "
                     # f"LR: {current_lr:.2e} | "
                     f"Elapsed time: {elapsed_time:.4f}s",
                     flush=True,
@@ -205,8 +202,8 @@ def main(cfg: DictConfig):
     gc.collect()
     torch.cuda.empty_cache()
 
-    f.write("\n\nTesting testing Single Shot: \n")
-    tqdm_epoch = tqdm((test_loader), desc=f"Direct Testing progress")
+    # f.write("\n\nTesting testing Single Shot: \n")
+    tqdm_epoch = tqdm((test_loader), desc=f"Testing progress")
     loss_history = []
 
     MSE = 0
@@ -218,7 +215,7 @@ def main(cfg: DictConfig):
     ssimT = ssim(data_range=2)
     mae = nn.L1Loss()  # by default reduction = 'mean'
 
-    ct = 0
+    counter = 0
     for j,data in enumerate(tqdm_epoch):
         xx, yy, tt = data
         xx, yy, tt = xx.to(device), yy.to(device), tt.to(device)
@@ -236,11 +233,11 @@ def main(cfg: DictConfig):
         ycomp = ycomp + 1.0
 
         loss = F.mse_loss(ycomp, yy)        # MSE
-        mf_loss = F.mse_loss(ycomp, yy)/F.mse_loss(yy*0, yy)     # misfit
+        mf_loss = F.mse_loss(ycomp, yy)/F.mse_loss(yy*0, yy)   
         
-        tqdm_epoch.set_description('step# = %3d   Loss(nMSE) =  %3.2e'%(j,mf_loss))
+        # tqdm_epoch.set_description('step# = %3d   Loss(nMSE) =  %3.2e'%(j,mf_loss))
         
-        f.write("Step:1"+str(j+1)+"\tmisfit: "+str(mf_loss.item())+"\tMSE: "+str(loss.item())+" \n")
+        # f.write("Step:1"+str(j+1)+"\tmisfit: "+str(mf_loss.item())+"\tMSE: "+str(loss.item())+" \n")
             
         RMSE += (loss.item())**0.5
         nRMSE += (mf_loss.item())**0.5
@@ -251,10 +248,10 @@ def main(cfg: DictConfig):
 
         loss_history.append(mf_loss.item())
         
-        ct = ct + 1
+        counter = counter + 1
 
         # Testing plots
-        if ct <= 10:
+        if counter <= 10:
             s1 = int((torch.rand(1).item())*yy.shape[0])
             #s2 = int((torch.rand(1).item())*yy.shape[0])
             fig, axs = plt.subplots(2, 3, figsize=(20, 10))
@@ -266,7 +263,7 @@ def main(cfg: DictConfig):
             axs[0,1].set_title('First Frame Prediction')
             axs[0, 1].axis("off")
             plt.colorbar(c2,ax = axs[0,1])
-            c3 = axs[0,2].imshow((yy.cpu()-ycomp.detach().cpu().numpy())[s1,0], cmap='viridis')
+            c3 = axs[0,2].imshow((yy.detach().cpu().numpy()-ycomp.detach().cpu().numpy())[s1,0], cmap='viridis')
             axs[0,2].set_title('First Frame Error')
             axs[0, 2].axis("off")
             plt.colorbar(c3,ax = axs[0,2])  # colorbar and position
@@ -279,40 +276,43 @@ def main(cfg: DictConfig):
             axs[1, 1].set_title('Last Frame Prediction')
             axs[1, 1].axis("off")
             plt.colorbar(c5,ax = axs[1, 1])
-            c6 = axs[1, 2].imshow((yy.cpu()-ycomp.detach().cpu().numpy())[s1,-1], cmap='viridis')
+            c6 = axs[1, 2].imshow((yy.detach().cpu().numpy()-ycomp.detach().cpu().numpy())[s1,-1], cmap='viridis')
             axs[1, 2].set_title('Last Frame Error')
             axs[1, 2].axis("off")
             plt.colorbar(c6,ax = axs[1, 2])  # colorbar and position
-            plt.savefig(os.path.join(plots_dir, "SingleShotComparison"+str(ct)+".png"))
+            plt.savefig(os.path.join(plots_dir, "SingleShotComparison"+str(counter)+".png"))
             
 
     # These are not the stadard calculations
-    PMSE = MSE/ct
-    RMSE = RMSE/ct
-    nRMSE = nRMSE/ct
-    nMSE = nMSE/ct
-    MSE = MSE*128*128/ct
-    MAE = MAE*128*128/ct
-    SSIM = SSIM/ct
+    PMSE = MSE/counter
+    RMSE = RMSE/counter
+    nRMSE = nRMSE/counter
+    nMSE = nMSE/counter
+    MSE = MSE*128*128/counter
+    MAE = MAE*128*128/counter
+    SSIM = SSIM/counter
 
-    print('Pixel level MSE: ',PMSE, '\tRMSE: ',RMSE, '\tnRMSE: ',nRMSE,'\tnMSE: ',nMSE)
-    print("Video Pred Setting: MSE: ",MSE,"\tMAE: ",MAE,"\tSSIM: ",SSIM)
-    f.write("\nDone\n")
-        
-    f.write("Final Report\n")
-    f.write("PMSE: "+str(PMSE)+"RMSE: "+str(RMSE)+"\nnRMSE: "+str(nRMSE)+"\nnMSE: "+str(nMSE)+"\n")
-    f.write("Video PRediction Metrics: "+"MSE: "+str(MSE)+"\nMAE: "+str(MAE)+"\nSSIM: "+str(SSIM)+"\n")
+    # Pixel level metrics
+    print('PMSE: ',PMSE, '\nRMSE: ',RMSE, '\nnRMSE: ',nRMSE,'\nnMSE: ',nMSE)
+    # print("\n")
+    # Video prediction metrics
+    print("MSE: ",MSE,"\nMAE: ", MAE, "\nSSIM: ",SSIM)
+
+    # f.write("\nDone\n")
+    # f.write("Final Report\n")
+    # f.write("PMSE: "+str(PMSE)+"\nRMSE: "+str(RMSE)+"\nnRMSE: "+str(nRMSE)+"\nnMSE: "+str(nMSE)+"\n")
+    # f.write("\n")
+    # f.write("Video Prediction Metrics: " + "\nMSE: "+str(MSE)+"\nMAE: "+str(MAE)+"\nSSIM: "+str(SSIM)+"\n")
 
     plt.figure()
     plt.plot(np.array(loss_history))
     plt.xlabel('#forward steps| each step predicts '+str(prediction)+' time steps')
-    plt.ylabel('loss (misfit)')
+    plt.ylabel('loss')
     plt.yscale("log")
     plt.title("Testing loss curve")
-    # plt.savefig(cfg.output_dir + "Direct_Testing_loss.png")
     plt.savefig(os.path.join(plots_dir, "Direct_Testing_loss.png"))
 
-    print('Done Direct Testing')
+    print('Done Testing')
 
     f.close()
 

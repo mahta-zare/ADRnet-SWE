@@ -5,6 +5,8 @@ OS_values=("strang" "lie")
 ORDER_values=("ADR" "DRA")
 INTEGRATOR_values=("FE" "RK4")
 OUTPUT_DIR="/home/ndj376/ADRnet/AdvectionNet/PDEBench_SWE_ADRNet_Pred50/test_results"
+CUDA="0"
+EPOCHS=200
 
 # Loop through all combinations
 for OS in "${OS_values[@]}"; do
@@ -22,7 +24,8 @@ for OS in "${OS_values[@]}"; do
             OperatorSplitting = $OS
             Order = $ORDER
             Integrator = $INTEGRATOR
-            " > "$FINAL_OUTPUT_DIR/log.txt"
+            EPOCHS = $EPOCHS
+            " > $FINAL_OUTPUT_DIR/log.txt
 
 
             python train_swe.py \
@@ -30,7 +33,9 @@ for OS in "${OS_values[@]}"; do
                 model.order=$ORDER \
                 model.integrator=$INTEGRATOR \
                 output_dir=$FINAL_OUTPUT_DIR \
-                >> "$FINAL_OUTPUT_DIR/log.txt"
+                compute.cuda_visible_devices=$CUDA \
+                trainer.num_epochs=$EPOCHS \
+                >> $FINAL_OUTPUT_DIR/log.txt
 
         done
     done
