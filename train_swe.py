@@ -46,17 +46,16 @@ def main(cfg: DictConfig):
         device = torch.device("cpu")
     print('Device: ',device)
     
-
     plots_dir = os.path.join(cfg.output_dir, "plots")
     os.makedirs(plots_dir, exist_ok=True)
 
 
 
-    batch_size = 64
+    batch_size = 256
     test_ratio = 0.1
     num_workers = 4
     history = 10
-    prediction = 1
+    prediction = 50
 
     train_data = SWEDataset('/gladwell/ndj376/ADRnet/SWE/swe'+str(history)+'_'+str(prediction)+'_train_data.pt')
     test_data = SWEDataset('/gladwell/ndj376/ADRnet/SWE/swe'+str(history)+'_'+str(prediction)+'_test_data.pt')
@@ -71,7 +70,7 @@ def main(cfg: DictConfig):
     in_c = history
     SZ = 64
     Mask = torch.ones(SZ, SZ)
-    model = resnet(cfg, in_c=history, hid_c = 2, out_c=prediction, nlayers=1, imsz=[SZ, SZ])
+    model = resnet(cfg, in_c=history, hid_c = 128, out_c=prediction, nlayers=1, imsz=[SZ, SZ])
     model.to(device)
 
     print('Number of model parameters = %3d'%(count_parameters(model)))
