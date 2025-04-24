@@ -32,7 +32,7 @@ from adrNet import *
 from sweDataLoader import *
 
 
-@hydra.main(config_path="config", config_name="configs", version_base=None)
+@hydra.main(config_path="/home/ndj376/ADRnet/AdvectionNet/PDEBench_SWE_ADRNet_Pred50/config", config_name="configs", version_base=None)
 def main(cfg: DictConfig):
     def count_parameters(model):
         return sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -55,7 +55,7 @@ def main(cfg: DictConfig):
     test_ratio = 0.1
     num_workers = 4
     history = 10
-    prediction = 50
+    prediction = 1
 
     train_data = SWEDataset('/gladwell/ndj376/ADRnet/SWE/swe'+str(history)+'_'+str(prediction)+'_train_data.pt')
     test_data = SWEDataset('/gladwell/ndj376/ADRnet/SWE/swe'+str(history)+'_'+str(prediction)+'_test_data.pt')
@@ -70,7 +70,12 @@ def main(cfg: DictConfig):
     in_c = history
     SZ = 64
     Mask = torch.ones(SZ, SZ)
-    model = resnet(cfg, in_c=history, hid_c = 128, out_c=prediction, nlayers=1, imsz=[SZ, SZ])
+
+    if cfg.model.projection:
+        model = resnet(cfg, in_c=history, hid_c = 128, out_c=prediction, nlayers=1, imsz=[SZ, SZ])
+    else:
+        model = resnet_no_projection(cfg, in_c=history, hid_c = history, out_c=prediction, nlayers=1, imsz=[SZ, SZ])
+
     model.to(device)
 
     print('Number of model parameters = %3d'%(count_parameters(model)))

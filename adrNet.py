@@ -311,9 +311,11 @@ class resnet(nn.Module):
         super(resnet, self).__init__()
         
         self.cfg = cfg
+        self.method = cfg.model.method
         self.order = cfg.model.order
         self.integrator = cfg.model.integrator
         self.os = cfg.model.os
+
 
         self.nlayers = nlayers
         self.Open = CLP(in_c, hid_c, imsz)
@@ -336,104 +338,188 @@ class resnet(nn.Module):
     def forward(self, x, t): 
         
         z = self.Open(x)
-        if self.os == "lie":
-            if self.order == "ADR":
-                for i in range(self.nlayers):
-
-                    z_adv = self.Adv[i](z,t)
-                    if self.integrator == "FE":
-                        # Diffusion Reaction step
-                        dz = self.DR[i](z_adv)
-                    elif self.integrator == "RK4":
-                        # Compute the diffusion reaction step
-                        k1 = self.DR[i](z_adv)
-                        k2 = self.DR[i](z_adv + 0.5*self.h*k1)
-                        k3 = self.DR[i](z_adv + 0.5*self.h*k2)
-                        k4 = self.DR[i](z_adv + self.h*k3)
-                        
-                        dz = (k1 + 2*k2 + 2*k3 + k4)/6
-
-                    z  = z_adv + self.h*dz    
-
-            elif self.order == "DRA":
-                for i in range(self.nlayers):
-                    
-                    if self.integrator == "FE":
-                        # Diffusion Reaction step
-                        dz = self.DR[i](z)
-                    elif self.integrator == "RK4":
-                        # Compute the diffusion reaction step
-                        k1 = self.DR[i](z)
-                        k2 = self.DR[i](z + 0.5*self.h*k1)
-                        k3 = self.DR[i](z + 0.5*self.h*k2)
-                        k4 = self.DR[i](z + self.h*k3)
-                        
-                        dz = (k1 + 2*k2 + 2*k3 + k4)/6
-
-                    z  = z + self.h*dz
-                    z = self.Adv[i](z,t)
-        
-        elif self.os == "strang":
-            if self.order == "ADR":
-                for i in range(self.nlayers):
-                    z_adv = self.Adv[i](z,t/2)
-
-                    if self.integrator == "FE":
-                        # Diffusion Reaction step
-                        dz = self.DR[i](z_adv)
-                    elif self.integrator == "RK4":
-                        # Compute the diffusion reaction step
-                        k1 = self.DR[i](z_adv)
-                        k2 = self.DR[i](z_adv + 0.5*self.h*k1)
-                        k3 = self.DR[i](z_adv + 0.5*self.h*k2)
-                        k4 = self.DR[i](z_adv + self.h*k3)
-                        
-                        dz = (k1 + 2*k2 + 2*k3 + k4)/6
-
-                    z = z_adv + self.h*dz    
-                    z = self.Adv[i](z,t/2)
-                    
-
-            elif self.order == "DRA":
-
-                for i in range(self.nlayers):
-                    if self.integrator == "FE":
-                        # Diffusion Reaction step
-                        dz = self.DR[i](z)
-                        z  = z + 0.5*self.h*dz
+        if self.method == "splitting":
+            if self.os == "lie":
+                if self.order == "ADR":
+                    for i in range(self.nlayers):
 
                         z_adv = self.Adv[i](z,t)
+                        if self.integrator == "FE":
+                            # Diffusion Reaction step
+                            dz = self.DR[i](z_adv)
+                        elif self.integrator == "RK4":
+                            # Compute the diffusion reaction step
+                            k1 = self.DR[i](z_adv)
+                            k2 = self.DR[i](z_adv + 0.5*self.h*k1)
+                            k3 = self.DR[i](z_adv + 0.5*self.h*k2)
+                            k4 = self.DR[i](z_adv + self.h*k3)
+                            
+                            dz = (k1 + 2*k2 + 2*k3 + k4)/6
 
-                        dz = self.DR[i](z_adv)
-                        z = z_adv + 0.5*self.h*dz
+                        z  = z_adv + self.h*dz    
 
-
-                    elif self.integrator == "RK4":
-                        # Compute the diffusion reaction step
-                        k1 = self.DR[i](z)
-                        k2 = self.DR[i](z + 0.25*self.h*k1)
-                        k3 = self.DR[i](z + 0.25*self.h*k2)
-                        k4 = self.DR[i](z + 0.5*self.h*k3)
+                elif self.order == "DRA":
+                    for i in range(self.nlayers):
                         
-                        dz = (k1 + 2*k2 + 2*k3 + k4)/6
+                        if self.integrator == "FE":
+                            # Diffusion Reaction step
+                            dz = self.DR[i](z)
+                        elif self.integrator == "RK4":
+                            # Compute the diffusion reaction step
+                            k1 = self.DR[i](z)
+                            k2 = self.DR[i](z + 0.5*self.h*k1)
+                            k3 = self.DR[i](z + 0.5*self.h*k2)
+                            k4 = self.DR[i](z + self.h*k3)
+                            
+                            dz = (k1 + 2*k2 + 2*k3 + k4)/6
 
-                        z  = z + 0.5*self.h*dz
-                        z_adv = self.Adv[i](z,t)
-
-                        # Compute the diffusion reaction step
-                        k1 = self.DR[i](z_adv)
-                        k2 = self.DR[i](z_adv + 0.25*self.h*k1)
-                        k3 = self.DR[i](z_adv + 0.25*self.h*k2)
-                        k4 = self.DR[i](z_adv + 0.5*self.h*k3)
-                        
-                        dz = (k1 + 2*k2 + 2*k3 + k4)/6
-
-                        z = z_adv + 0.5*self.h*dz
-
+                        z  = z + self.h*dz
+                        z = self.Adv[i](z,t)
             
+            elif self.os == "strang":
+                if self.order == "ADR":
+                    for i in range(self.nlayers):
+                        z_adv = self.Adv[i](z,t/2)
+
+                        if self.integrator == "FE":
+                            # Diffusion Reaction step
+                            dz = self.DR[i](z_adv)
+                        elif self.integrator == "RK4":
+                            # Compute the diffusion reaction step
+                            k1 = self.DR[i](z_adv)
+                            k2 = self.DR[i](z_adv + 0.5*self.h*k1)
+                            k3 = self.DR[i](z_adv + 0.5*self.h*k2)
+                            k4 = self.DR[i](z_adv + self.h*k3)
+                            
+                            dz = (k1 + 2*k2 + 2*k3 + k4)/6
+
+                        z = z_adv + self.h*dz    
+                        z = self.Adv[i](z,t/2)
+                        
+
+                elif self.order == "DRA":
+
+                    for i in range(self.nlayers):
+                        if self.integrator == "FE":
+                            # Diffusion Reaction step
+                            dz = self.DR[i](z)
+                            z  = z + 0.5*self.h*dz
+
+                            z_adv = self.Adv[i](z,t)
+
+                            dz = self.DR[i](z_adv)
+                            z = z_adv + 0.5*self.h*dz
+
+
+                        elif self.integrator == "RK4":
+                            # Compute the diffusion reaction step
+                            k1 = self.DR[i](z)
+                            k2 = self.DR[i](z + 0.25*self.h*k1)
+                            k3 = self.DR[i](z + 0.25*self.h*k2)
+                            k4 = self.DR[i](z + 0.5*self.h*k3)
+                            
+                            dz = (k1 + 2*k2 + 2*k3 + k4)/6
+
+                            z  = z + 0.5*self.h*dz
+                            z_adv = self.Adv[i](z,t)
+
+                            # Compute the diffusion reaction step
+                            k1 = self.DR[i](z_adv)
+                            k2 = self.DR[i](z_adv + 0.25*self.h*k1)
+                            k3 = self.DR[i](z_adv + 0.25*self.h*k2)
+                            k4 = self.DR[i](z_adv + 0.5*self.h*k3)
+                            
+                            dz = (k1 + 2*k2 + 2*k3 + k4)/6
+
+                            z = z_adv + 0.5*self.h*dz
+
+        elif self.method == "predictor-corrector":
+            
+            if self.integrator == "HEUN":
+                for i in range(self.nlayers):
+                    z_adv = self.Adv[i](z,t)
+                    dz1 = self.DR[i](z_adv)
+                    z_pred = z_adv + self.h * dz1  # predicted z at next step
+
+                    # Corrector step (evaluate derivative at predicted point)
+                    z_adv_pred = self.Adv[i](z_pred, t + self.h)
+                    dz2 = self.DR[i](z_adv_pred)
+                    # Final update (average of slopes)
+                    z = z_adv + 0.5 * self.h * (dz1 + dz2)
+                    
+            elif self.integrator == "MID":
+                for i in range(self.nlayers):
+                    z_adv = self.Adv[i](z,t)
+                    dz1 = self.DR[i](z_adv)
+                    # Step 2: Estimate state at the midpoint
+                    z_mid = z_adv + 0.5 * self.h * dz1
+
+                    # Step 3: Evaluate derivative at midpoint
+                    z_adv_mid = self.Adv[i](z_mid, t + 0.5 * self.h)
+                    dz = self.DR[i](z_adv_mid)
+
+                    z  = z_adv + self.h*dz
+
+
         x = F.conv2d(z, self.Close) #self.Close(z)
         
         return x
+
+
+
+class resnet_no_projection(nn.Module):
+    def __init__(self, cfg: DictConfig, in_c, hid_c, out_c, nlayers=16, imsz=[256, 256]):
+        super(resnet_no_projection, self).__init__()
+        
+        self.cfg = cfg
+        self.method = cfg.model.method
+        self.order = cfg.model.order
+        self.integrator = cfg.model.integrator
+        self.os = cfg.model.os
+
+        self.nlayers = nlayers
+        # self.Open = CLP(in_c, hid_c, imsz)
+        # Main block
+        self.Adv = nn.ParameterList()
+        self.DR  = nn.ParameterList()
+        for i in range(nlayers):
+            #Advi = advectionMassBlock(hid_c, imsz)
+            Advi = advectionColorBlock(hid_c, imsz)
+        
+            DRi  = CLP(hid_c, out_c, imsz, kernel_size=[5,5])
+            self.Adv.append(Advi)
+            self.DR.append(DRi)
+        
+        # Close net
+        # self.Close = nn.Parameter(torch.randn(out_c, hid_c, 1, 1)*1e-2) #CLP(hid_c, out_c, imsz) #
+        self.h     = 1/imsz[0]
+                
+            
+    def forward(self, x, t): 
+        
+        # z = self.Open(x)
+        z = x
+        for i in range(self.nlayers):
+            z_adv = self.Adv[i](z,t)
+            if self.integrator == "FE":
+                # Diffusion Reaction step
+                dz = self.DR[i](z_adv)
+            elif self.integrator == "RK4":
+                # Compute the diffusion reaction step
+                k1 = self.DR[i](z_adv)
+                k2 = self.DR[i](z_adv + 0.5*self.h*k1)
+                k3 = self.DR[i](z_adv + 0.5*self.h*k2)
+                k4 = self.DR[i](z_adv + self.h*k3)
+                
+                dz = (k1 + 2*k2 + 2*k3 + k4)/6
+
+            z  = z_adv + self.h*dz   
+        
+        x = z
+        # x = F.conv2d(z, self.Close) #self.Close(z)
+        
+        return x
+
 
 def sinusoidal_embedding(n, d):
     # Returns the standard positional embedding

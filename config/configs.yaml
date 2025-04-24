@@ -1,7 +1,9 @@
 model:
-  os: "strang"                     # splitting method, strang, lie-trotter
+  method: "splitting"              # Method to use, "splitting" or "predictor-corrector"
+  os: "lie"                     # splitting method, strang, lie-trotter
   order:  "ADR"                    # splitting order, ADR, DRA
-  integrator: "RK4"                 # integrator, FE, RK4
+  integrator: "FE"                 # integrator, FE, RK4, (HEUN, MID only when os=lie and order=ADR)
+  projection: False
 
 
 trainer:
@@ -9,10 +11,13 @@ trainer:
   learning_rate: 1e-4      # Initial learning rate
 
 compute:
-  cuda_visible_devices: "1"          # Which GPU to use. Can be "0", "1", or "0,1"
+  cuda_visible_devices: "0"          # Which GPU to use. Can be "0", "1", or "0,1"
   accelerator: "gpu"            # Accelerator type (e.g., "gpu", "cpu")
   num_devices: 1            # Number of devices to use for training
   
 output_dir: /home/ndj376/ADRnet/AdvectionNet/PDEBench_SWE_ADRNet_Pred50/test_results
 
-
+hydra:
+  output_subdir: null
+  run:
+    dir: . 
